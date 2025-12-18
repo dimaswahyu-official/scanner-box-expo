@@ -12,7 +12,7 @@ import { router } from "expo-router";
 import { User } from "../types";
 import { getData, saveData } from "@/utils/storage";
 import { useSessionStore } from "../store/useSessionStore";
-import DatePickerModal from "@/components/date-picker-modals";
+import DatePickerModal from "./components/date-picker-modals";
 
 export default function UserScreen() {
   const [users, setUsers] = useState<any[]>([]);

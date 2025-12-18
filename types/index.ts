@@ -1,6 +1,6 @@
 export interface User {
 
-    id: string;
+  id: string;
   name: string;
   phone: string;
   date: string;
@@ -16,6 +16,7 @@ export interface Batch {
   id: string;
   name: string;
   userId: string;
+  userRequestFrom?: string;
   createdAt: string;
   scans: ScanItem[];
 }

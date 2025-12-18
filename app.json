@@ -22,7 +22,8 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA"
-      ]
+      ],
+      "package": "com.dewedev.ScannerBox"
     },
     "web": {
       "output": "static",
@@ -41,8 +42,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ],
-      "expo-barcode-scanner"
+      ]
+      
     ],
     "experiments": {
       "typedRoutes": true,

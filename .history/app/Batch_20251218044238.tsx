@@ -158,7 +158,7 @@ export default function BatchScreen() {
               <Text style={styles.delete}>Delete</Text>
             </TouchableOpacity>
           </View>
-          </
+          </View>
         </View>
       ))}
     </View>

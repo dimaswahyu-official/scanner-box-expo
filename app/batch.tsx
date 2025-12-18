@@ -59,6 +59,7 @@ export default function BatchScreen() {
           id: Date.now().toString(),
           name,
           userId: user.id,
+          userRequestFrom: user.requestFrom,
           createdAt: user.date || new Date().toISOString(),
           scans: [],
         },

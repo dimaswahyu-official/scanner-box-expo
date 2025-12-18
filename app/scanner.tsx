@@ -178,6 +178,7 @@ export default function ScannerScreen() {
         )}
       />
 
+
       {/* EXPORT */}
       <TouchableOpacity
         style={styles.secondaryBtn}
@@ -185,6 +186,14 @@ export default function ScannerScreen() {
       >
         <Text style={styles.secondaryText}>Export CSV</Text>
       </TouchableOpacity>
+      <Text style={{ 
+  color: "#6B7280", 
+  marginTop: 8, 
+  fontSize: 12,
+  textAlign: "center",
+}}>
+  Setelah export, pilih File Manager atau Drive lalu simpan ke Downloads
+</Text>
 
       {/* DELETE CONFIRM */}
       <Modal transparent visible={!!deleteTarget} animationType="fade">

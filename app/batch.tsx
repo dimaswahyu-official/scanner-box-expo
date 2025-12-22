@@ -118,8 +118,8 @@ export default function BatchScreen() {
   const deleteBatch = async (id: string) => {
 
     Alert.alert(
-      "Hapus User",
-      "Apakah kamu yakin ingin menghapus user ini?",
+      "Hapus Batch",
+      "Apakah kamu yakin ingin menghapus batch ini?",
       [
         {
           text: "Batal",

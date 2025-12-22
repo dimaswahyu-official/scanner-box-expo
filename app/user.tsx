@@ -22,6 +22,8 @@ export default function UserScreen() {
   const [date, setDate] = useState(new Date());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [batches, setBatches] = useState<any[]>([]);
+  const [successVisible, setSuccessVisible] = useState(false);
+const [successMessage, setSuccessMessage] = useState("");
 
 
   const setUser = useSessionStore((state) => state.setUser);
@@ -58,33 +60,45 @@ const getUserStats = (userId: string) => {
   };
 
   const saveUser = async () => {
-    if (!name || !phone) return;
+  if (!name || !phone) {
+    Alert.alert("Validasi", "Nama dan telepon wajib diisi");
+    return;
+  }
 
-    let updated;
+  let updated;
+  const isEdit = !!editingId;
 
-    if (editingId) {
-      updated = users.map((u) =>
-        u.id === editingId
-          ? { ...u, name, phone, requestFrom, date: date.toISOString() }
-          : u
-      );
-    } else {
-      updated = [
-        ...users,
-        {
-          id: Date.now().toString(),
-          name,
-          phone,
-          requestFrom,
-          date: date.toISOString(),
-        },
-      ];
-    }
+  if (editingId) {
+    updated = users.map((u) =>
+      u.id === editingId
+        ? { ...u, name, phone }
+        : u
+    );
+  } else {
+    updated = [
+      ...users,
+      {
+        id: Date.now().toString(),
+        name,
+        phone,
+        requestFrom,
+        date: date.toISOString(),
+      },
+    ];
+  }
 
-    setUsers(updated);
-    await saveData("users", updated);
-    resetForm();
-  };
+  setUsers(updated);
+  await saveData("users", updated);
+  resetForm();
+
+  // ✅ TAMPILKAN SUCCESS DIALOG
+  setSuccessMessage(
+    isEdit
+      ? "User berhasil diperbarui"
+      : "User berhasil ditambahkan"
+  );
+  setSuccessVisible(true);
+};
 
   const editUser = (u: any) => {
     setEditingId(u.id);
@@ -192,6 +206,27 @@ const deleteUser = (id: string) => {
     </View>
   );
 })}
+
+<Modal
+  transparent
+  animationType="fade"
+  visible={successVisible}
+  onRequestClose={() => setSuccessVisible(false)}
+>
+  <View style={styles.overlay}>
+    <View style={styles.modal}>
+      <Text style={styles.modalTitle}>Berhasil 🎉</Text>
+      <Text style={{ marginBottom: 16 }}>{successMessage}</Text>
+
+      <TouchableOpacity
+        style={styles.primaryBtn}
+        onPress={() => setSuccessVisible(false)}
+      >
+        <Text style={styles.primaryText}>OK</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
 
 
 

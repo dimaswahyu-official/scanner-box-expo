@@ -33,14 +33,14 @@ export const exportBatchToCSV = async (batch: Batch) => {
       const yyyy = d.getFullYear();
       const mm = String(d.getMonth() + 1).padStart(2, "0");
       const dd = String(d.getDate()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd}`;
+      return `${yyyy}${mm}${dd}`;
     })()
     : `${yyyy}-${mm}-${dd}`;
   const fileName = `Scanner-${userName}-${batchName}-${barcodeCount}-${batchDate}.csv`;
   const fileUri = FileSystem.documentDirectory + fileName;
 
   let csv =
-    `"No SJ";"Trx Type";"Grade";"Dest";"Date";"Barcode";"Gross";"Tare";"Netto";"PT";"Kode PT"\n`;
+    `No SJ;Trx Type;Grade;Dest;Date;Barcode;Gross;Tare;Netto;PT;Kode PT\n`;
 
   batch.scans.forEach((s) => {
     const d = new Date(s.scannedAt);
@@ -52,12 +52,12 @@ export const exportBatchToCSV = async (batch: Batch) => {
       `${String(d.getMinutes()).padStart(2, "0")}:` +
       `${String(d.getSeconds()).padStart(2, "0")}`;
 
-    const barcode = `"${String(s.code).replace(/"/g, '""')}"`;
+    const barcode = `${String(s.code).replace(/"/g, '""')}`;
 
     csv +=
-      `"";"";"";"";` +
-      `"${formattedDate}";` +
-      `${barcode};"";"";"";"";""\n`;
+      `;;;;` +
+      `${formattedDate};` +
+      `${barcode};;;;;\n`;
   });
 
   await FileSystem.writeAsStringAsync(fileUri, csv, {

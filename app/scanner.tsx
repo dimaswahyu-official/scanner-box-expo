@@ -65,12 +65,8 @@ export default function ScannerScreen() {
     if (exists) {
       await playError();
       setDuplicateCode(data);
-
-      setTimeout(() => {
-        setScanned(false);
-        setCameraOn(true);
-      }, 1200);
-
+      // ❌ JANGAN nyalakan kamera lagi di sini
+      setScanned(false);
       return;
     }
 

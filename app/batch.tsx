@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Modal,
 } from "react-native";
 
 import { useSessionStore } from "../store/useSessionStore";
@@ -25,6 +26,9 @@ export default function BatchScreen() {
   const [showDate, setShowDate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const rootNavigationState = useRootNavigationState();
+  const [successVisible, setSuccessVisible] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
 
   // 🔒 PROTECT + LOAD
   useEffect(() => {
@@ -59,6 +63,7 @@ export default function BatchScreen() {
 
     const all: Batch[] = await getData("batches");
     let updated: Batch[];
+    const isEdit = !!editingId;
 
     if (editingId) {
       // ✏️ UPDATE
@@ -90,7 +95,16 @@ export default function BatchScreen() {
     await saveData("batches", updated);
     setBatches(updated.filter((b) => b.userId === user.id));
     resetForm();
+
+    // ✅ SUCCESS DIALOG
+    setSuccessMessage(
+      isEdit
+        ? "Batch berhasil diperbarui"
+        : "Batch berhasil ditambahkan"
+    );
+    setSuccessVisible(true);
   };
+
 
 
   const editBatch = (batch: Batch) => {
@@ -253,6 +267,27 @@ export default function BatchScreen() {
           </TouchableOpacity>
         ))}
 
+        <Modal
+          transparent
+          animationType="fade"
+          visible={successVisible}
+          onRequestClose={() => setSuccessVisible(false)}
+        >
+          <View style={styles.overlay}>
+            <View style={styles.modal}>
+              <Text style={styles.modalTitle}>Berhasil 🎉</Text>
+              <Text style={{ marginBottom: 16 }}>{successMessage}</Text>
+
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={() => setSuccessVisible(false)}
+              >
+                <Text style={styles.primaryText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
       </View>
     </>
   );
@@ -372,5 +407,21 @@ const styles = StyleSheet.create({
   delete: {
     color: "#DC2626",
     fontWeight: "500",
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modal: {
+    backgroundColor: "#FFF",
+    padding: 20,
+    borderRadius: 12,
+    width: "80%",
+  },
+  modalTitle: {
+    fontWeight: "600",
+    marginBottom: 12,
   },
 });

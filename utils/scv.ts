@@ -1,9 +1,10 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import { Batch } from "@/types";
+import { Batch, User } from "@/types";
+import { getData } from "./storage";
 
 export const exportBatchToCSV = async (batch: Batch) => {
-  if (!batch || !batch.scans || batch.scans.length === 0) {
+  if (!batch?.scans?.length) {
     alert("Tidak ada data untuk di-export");
     return;
   }
@@ -13,24 +14,35 @@ export const exportBatchToCSV = async (batch: Batch) => {
     return;
   }
 
-  // 📅 tanggal hari ini (YYYY-MM-DD)
   const now = new Date();
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   const dd = String(now.getDate()).padStart(2, "0");
 
-  // 🧼 amankan nama file
-  const safeRequestFrom =
-    batch.userRequestFrom?.replace(/[^a-z0-9]/gi, "_") || "unknown";
+  const safeRequestFrom = batch.userRequestFrom?.replace(/[^a-z0-9]/gi, "_") || "unknown";
+  const users: User[] = await getData("users");
+  const user = users.find((u) => u.id === batch.userId);
 
-  const fileName = `scanner-${safeRequestFrom}-${yyyy}-${mm}-${dd}.csv`;
+  const userName =
+    user?.name?.replace(/[^a-z0-9]/gi, "_") || "unknown_user";
+  const batchName = batch.name?.replace(/[^a-z0-9]/gi, "_") || "unknown";
+  const barcodeCount = batch.scans?.length || 0;
+  const batchDate = batch.createdAt
+    ? (() => {
+      const d = new Date(batch.createdAt);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    })()
+    : `${yyyy}-${mm}-${dd}`;
+  const fileName = `Scanner-${userName}-${batchName}-${barcodeCount}-${batchDate}.csv`;
   const fileUri = FileSystem.documentDirectory + fileName;
 
-  // 🧾 HEADER SESUAI TEMPLATE
   let csv =
-    `"No SJ","Trx Type","Grade","Dest","Date","Barcode","Gross","Tare","Netto","PT","Kode PT"\n`;
+    `"No SJ";"Trx Type";"Grade";"Dest";"Date";"Barcode";"Gross";"Tare";"Netto";"PT";"Kode PT"\n`;
 
-  batch.scans.forEach((s, index) => {
+  batch.scans.forEach((s) => {
     const d = new Date(s.scannedAt);
     const formattedDate =
       `${String(d.getDate()).padStart(2, "0")}/` +
@@ -43,31 +55,21 @@ export const exportBatchToCSV = async (batch: Batch) => {
     const barcode = `"${String(s.code).replace(/"/g, '""')}"`;
 
     csv +=
-      `"";` +             // No SJ
-      `"";` +             // Trx Type
-      `"";` +             // Grade
-      `"";` +             // Dest
+      `"";"";"";"";` +
       `"${formattedDate}";` +
-      `${barcode};` +
-      `"";` +             // Gross
-      `"";` +             // Tare
-      `"";` +             // Netto
-      `"";` +             // PT
-      `""\n`;              // Kode PT
+      `${barcode};"";"";"";"";""\n`;
   });
 
-  // ✍️ TULIS FILE
   await FileSystem.writeAsStringAsync(fileUri, csv, {
     encoding: FileSystem.EncodingType.UTF8,
   });
 
-  // 📤 SHARE → USER PILIH "SAVE TO DOWNLOADS"
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(fileUri, {
       mimeType: "text/csv",
-      dialogTitle: "Export Scanner CSV",
+      dialogTitle: "Simpan / Bagikan CSV",
     });
   } else {
-    alert("File berhasil dibuat");
+    alert("File berhasil dibuat di penyimpanan aplikasi");
   }
 };

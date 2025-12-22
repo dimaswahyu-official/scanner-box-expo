@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,13 +6,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
+  Alert,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import { User } from "../types";
 import { getData, saveData } from "@/utils/storage";
 import { useSessionStore } from "../store/useSessionStore";
-import DatePickerModal from "./components/date-picker-modals";
 
 export default function UserScreen() {
   const [users, setUsers] = useState<any[]>([]);
@@ -20,14 +20,35 @@ export default function UserScreen() {
   const [phone, setPhone] = useState("");
   const [requestFrom, setRequestFrom] = useState("");
   const [date, setDate] = useState(new Date());
-  const [showDate, setShowDate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [batches, setBatches] = useState<any[]>([]);
+
 
   const setUser = useSessionStore((state) => state.setUser);
 
-  useEffect(() => {
+useFocusEffect(
+  useCallback(() => {
     getData("users").then(setUsers);
-  }, []);
+    getData("batches").then(setBatches);
+  }, [])
+);
+
+const getUserStats = (userId: string) => {
+  const userBatches = batches.filter(
+    (b) => b.userId === userId
+  );
+
+  const totalScans = userBatches.reduce(
+    (sum, b) => sum + (b.scans?.length || 0),
+    0
+  );
+
+  return {
+    batchCount: userBatches.length,
+    scanCount: totalScans,
+  };
+};
+
 
   const resetForm = () => {
     setName("");
@@ -73,11 +94,29 @@ export default function UserScreen() {
     setDate(u.date ? new Date(u.date) : new Date());
   };
 
-  const deleteUser = async (id: string) => {
-    const updated = users.filter((u) => u.id !== id);
-    setUsers(updated);
-    await saveData("users", updated);
-  };
+const deleteUser = (id: string) => {
+  Alert.alert(
+    "Hapus User",
+    "Apakah kamu yakin ingin menghapus user ini?",
+    [
+      {
+        text: "Batal",
+        style: "cancel",
+      },
+      {
+        text: "Hapus",
+        style: "destructive",
+        onPress: async () => {
+          const updated = users.filter((u) => u.id !== id);
+          setUsers(updated);
+          await saveData("users", updated);
+        },
+      },
+    ],
+    { cancelable: true }
+  );
+};
+
 
   const selectUser = (u: User) => {
     setUser(u);
@@ -107,21 +146,7 @@ export default function UserScreen() {
           onChangeText={setPhone}
         />
 
-        <Text style={styles.label}>Permintaan Dari</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Gudang / Customer / Internal"
-          value={requestFrom}
-          onChangeText={setRequestFrom}
-        />
 
-        <Text style={styles.label}>Tanggal</Text>
-        <TouchableOpacity
-          style={styles.dateButton}
-          onPress={() => setShowDate(true)}
-        >
-          <Text>{date.toLocaleDateString("id-ID")}</Text>
-        </TouchableOpacity>
 
         <TouchableOpacity style={styles.primaryBtn} onPress={saveUser}>
           <Text style={styles.primaryText}>
@@ -133,32 +158,43 @@ export default function UserScreen() {
       {/* LIST */}
       <Text style={styles.section}>Pilih User</Text>
 
-      {users.map((u) => (
-        <View key={u.id} style={styles.userCard}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <TouchableOpacity style={{ flex: 1 }} onPress={() => selectUser(u)}>
-              <Text style={styles.userName}>{u.name}</Text>
-              <Text style={styles.userPhone}>{u.phone}</Text>
-            </TouchableOpacity>
-            <View style={[styles.actionRow, { marginTop: 0 }]}>
-              <TouchableOpacity onPress={() => editUser(u)}>
-                <Text style={styles.edit}>Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => deleteUser(u.id)}>
-                <Text style={styles.delete}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      ))}
+     {users.map((u) => {
+  const { batchCount, scanCount } = getUserStats(u.id);
 
-      {/* DATE MODAL */}
-      <DatePickerModal
-  visible={showDate}
-  value={date}
-  onChange={setDate}
-  onClose={() => setShowDate(false)}
-/>
+  return (
+    <View key={u.id} style={styles.userCard}>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <TouchableOpacity style={{ flex: 1 }} onPress={() => selectUser(u)}>
+          <Text style={styles.userName}>{u.name}</Text>
+          <Text style={styles.userPhone}>{u.phone}</Text>
+
+          {/* 🔢 STAT */}
+          <Text style={styles.userStats}>
+            {batchCount} Batch • {scanCount} Scan
+          </Text>
+        </TouchableOpacity>
+
+        <View style={[styles.actionRow, { marginTop: 0 }]}>
+          <TouchableOpacity onPress={() => editUser(u)}>
+            <Text style={styles.edit}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => deleteUser(u.id)}>
+            <Text style={styles.delete}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+})}
+
+
+
     </View>
   );
 }
@@ -256,4 +292,10 @@ const styles = StyleSheet.create({
   modalItem: {
     paddingVertical: 12,
   },
+  userStats: {
+  fontSize: 12,
+  color: "#6B7280",
+  marginTop: 4,
+},
+
 });

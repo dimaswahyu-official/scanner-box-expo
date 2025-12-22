@@ -3,8 +3,6 @@ export interface User {
   id: string;
   name: string;
   phone: string;
-  date: string;
-  requestFrom?: string;
 }
 
 export interface ScanItem {
@@ -16,7 +14,7 @@ export interface Batch {
   id: string;
   name: string;
   userId: string;
-  userRequestFrom?: string;
+  userRequestFrom: string;
   createdAt: string;
   scans: ScanItem[];
 }

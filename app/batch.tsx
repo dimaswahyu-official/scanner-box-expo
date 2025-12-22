@@ -1,16 +1,18 @@
-import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { router, Stack, useRootNavigationState } from "expo-router";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from "react-native";
 
 import { useSessionStore } from "../store/useSessionStore";
 import { Batch } from "../types";
 import { getData, saveData } from "../utils/storage";
+import DatePickerModal from "./components/date-picker-modals";
 
 export default function BatchScreen() {
   const user = useSessionStore((state) => state.user);
@@ -18,10 +20,16 @@ export default function BatchScreen() {
 
   const [batches, setBatches] = useState<Batch[]>([]);
   const [name, setName] = useState("");
+  const [requestFrom, setRequestFrom] = useState("");
+  const [date, setDate] = useState(new Date());
+  const [showDate, setShowDate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const rootNavigationState = useRootNavigationState();
 
   // 🔒 PROTECT + LOAD
   useEffect(() => {
+    if (!rootNavigationState?.key) return; // ⛔ tunggu router siap
+
     if (!user) {
       router.replace("/user");
       return;
@@ -33,23 +41,36 @@ export default function BatchScreen() {
       );
       setBatches(filtered);
     });
-  }, [user]);
+  }, [rootNavigationState?.key, user]);
+
 
   const resetForm = () => {
     setName("");
+    setRequestFrom("");
+    setDate(new Date());
     setEditingId(null);
   };
 
   const saveBatch = async () => {
-    if (!user || !name) return;
+    if (!user || !name || !requestFrom) {
+      Alert.alert("Validasi", "Nama batch dan permintaan dari wajib diisi");
+      return;
+    }
 
-    const all = await getData("batches");
+    const all: Batch[] = await getData("batches");
     let updated: Batch[];
 
     if (editingId) {
       // ✏️ UPDATE
-      updated = all.map((b: Batch) =>
-        b.id === editingId ? { ...b, name } : b
+      updated = all.map((b) =>
+        b.id === editingId
+          ? {
+            ...b,
+            name,
+            userRequestFrom: requestFrom,
+            createdAt: date.toISOString(),
+          }
+          : b
       );
     } else {
       // ➕ ADD
@@ -59,8 +80,8 @@ export default function BatchScreen() {
           id: Date.now().toString(),
           name,
           userId: user.id,
-          userRequestFrom: user.requestFrom,
-          createdAt: user.date || new Date().toISOString(),
+          userRequestFrom: requestFrom,
+          createdAt: date.toISOString(),
           scans: [],
         },
       ];
@@ -71,17 +92,41 @@ export default function BatchScreen() {
     resetForm();
   };
 
+
   const editBatch = (batch: Batch) => {
     setEditingId(batch.id);
     setName(batch.name);
+    setRequestFrom(batch.userRequestFrom);
+    setDate(new Date(batch.createdAt));
   };
 
-  const deleteBatch = async (id: string) => {
-    const all = await getData("batches");
-    const updated = all.filter((b: Batch) => b.id !== id);
 
-    await saveData("batches", updated);
-    setBatches(updated.filter((b:any) => b.userId === user?.id));
+  const deleteBatch = async (id: string) => {
+
+    Alert.alert(
+      "Hapus User",
+      "Apakah kamu yakin ingin menghapus user ini?",
+      [
+        {
+          text: "Batal",
+          style: "cancel",
+        },
+        {
+          text: "Hapus",
+          style: "destructive",
+          onPress: async () => {
+            const all = await getData("batches");
+            const updated = all.filter((b: Batch) => b.id !== id);
+
+            await saveData("batches", updated);
+            setBatches(updated.filter((b: any) => b.userId === user?.id));
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+
+
   };
 
   const selectBatch = (batch: Batch) => {
@@ -89,80 +134,127 @@ export default function BatchScreen() {
     router.push("/scanner");
   };
 
+
   if (!user) return null;
 
   return (
-    <View style={styles.container}>
-      {/* HEADER USER */}
-      <View style={styles.headerCard}>
-        <Text style={styles.headerLabel}>User</Text>
-        <Text style={styles.headerName}>{user.name}</Text>
+    <>
+      <Stack.Screen
+        options={{
+          title: `BATCH | ${(user?.name ?? "").toUpperCase()}`
+        }}
+      />
+      <View style={styles.container}>
 
-        {user.date && (
-          <Text style={styles.headerDate}>
-            Tanggal Batch:{" "}
-            {new Date(user.date).toLocaleDateString("id-ID")}
+        {/* FORM */}
+        <View style={styles.card}>
+          <Text style={styles.title}>
+            {editingId ? "Edit Batch" : "Tambah Batch"}
           </Text>
-        )}
-      </View>
 
-      {/* FORM */}
-      <View style={styles.card}>
-        <Text style={styles.title}>
-          {editingId ? "Edit Batch" : "Tambah Batch"}
-        </Text>
+          <Text style={styles.label}>Nama Batch</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Contoh: Batch Pagi"
+            value={name}
+            onChangeText={setName}
+          />
+          <Text style={styles.label}>Permintaan Dari</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Gudang / Customer / Internal"
+            value={requestFrom}
+            onChangeText={setRequestFrom}
+          />
 
-        <Text style={styles.label}>Nama Batch</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Contoh: Batch Pagi"
-          value={name}
-          onChangeText={setName}
-        />
-
-        <TouchableOpacity style={styles.primaryBtn} onPress={saveBatch}>
-          <Text style={styles.primaryText}>
-            {editingId ? "Update Batch" : "Simpan Batch"}
-          </Text>
-        </TouchableOpacity>
-
-        {editingId && (
-          <TouchableOpacity onPress={resetForm}>
-            <Text style={styles.cancel}>Batal Edit</Text>
+          <Text style={styles.label}>Tanggal</Text>
+          <TouchableOpacity
+            style={styles.dateButton}
+            onPress={() => setShowDate(true)}
+          >
+            <Text>{date.toLocaleDateString("id-ID")}</Text>
           </TouchableOpacity>
-        )}
-      </View>
 
-      {/* LIST */}
-      <Text style={styles.section}>Daftar Batch</Text>
-
-      {batches.length === 0 && (
-        <Text style={styles.empty}>Belum ada batch</Text>
-      )}
-
-      {batches.map((b) => (
-        <View key={b.id} style={styles.batchCard}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <TouchableOpacity onPress={() => selectBatch(b)}>
-            <Text style={styles.batchName}>{b.name}</Text>
-            <Text style={styles.batchDate}>
-              {new Date(b.createdAt).toLocaleDateString("id-ID")}
+          <TouchableOpacity style={styles.primaryBtn} onPress={saveBatch}>
+            <Text style={styles.primaryText}>
+              {editingId ? "Update Batch" : "Simpan Batch"}
             </Text>
           </TouchableOpacity>
 
-          {/* ACTIONS */}
-          <View style={styles.actionRow}>
-            <TouchableOpacity onPress={() => editBatch(b)}>
-              <Text style={styles.edit}>Edit</Text>
+          {editingId && (
+            <TouchableOpacity onPress={resetForm}>
+              <Text style={styles.cancel}>Batal Edit</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => deleteBatch(b.id)}>
-              <Text style={styles.delete}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-          </View>
+          )}
+
+          {/* DATE MODAL */}
+          <DatePickerModal
+            visible={showDate}
+            value={date}
+            onChange={setDate}
+            onClose={() => setShowDate(false)}
+          />
         </View>
-      ))}
-    </View>
+
+        {/* LIST */}
+        <Text style={styles.section}>Daftar Batch</Text>
+
+        {batches.length === 0 && (
+          <Text style={styles.empty}>Belum ada batch</Text>
+        )}
+
+        {batches.map((b) => (
+          <TouchableOpacity
+            key={b.id}
+            style={styles.batchCard}
+            activeOpacity={0.8}
+            onPress={() => selectBatch(b)}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              {/* CONTENT */}
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text
+                  style={styles.batchName}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {b.name}
+                </Text>
+
+                <Text style={styles.batchDate}>
+                  {b.userRequestFrom} •{" "}
+                  {new Date(b.createdAt).toLocaleDateString("id-ID")}
+                </Text>
+              </View>
+
+              {/* ACTIONS */}
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  onPress={() => editBatch(b)}
+                  hitSlop={10}
+                >
+                  <Text style={styles.edit}>Edit</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => deleteBatch(b.id)}
+                  hitSlop={10}
+                >
+                  <Text style={styles.delete}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ))}
+
+      </View>
+    </>
   );
 }
 
@@ -199,6 +291,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     marginBottom: 20,
+  },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 4,
   },
   title: {
     fontSize: 16,

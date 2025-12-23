@@ -13,6 +13,11 @@ import { router, useFocusEffect } from "expo-router";
 import { User } from "../types";
 import { getData, saveData } from "@/utils/storage";
 import { useSessionStore } from "../store/useSessionStore";
+const RequiredLabel = ({ children }: { children: string }) => (
+  <Text style={styles.label}>
+    {children} <Text style={styles.required}>*</Text>
+  </Text>
+);
 
 export default function UserScreen() {
   const [users, setUsers] = useState<any[]>([]);
@@ -23,33 +28,35 @@ export default function UserScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [batches, setBatches] = useState<any[]>([]);
   const [successVisible, setSuccessVisible] = useState(false);
-const [successMessage, setSuccessMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
 
 
   const setUser = useSessionStore((state) => state.setUser);
 
-useFocusEffect(
-  useCallback(() => {
-    getData("users").then(setUsers);
-    getData("batches").then(setBatches);
-  }, [])
-);
-
-const getUserStats = (userId: string) => {
-  const userBatches = batches.filter(
-    (b) => b.userId === userId
+  useFocusEffect(
+    useCallback(() => {
+      getData("users").then(setUsers);
+      getData("batches").then(setBatches);
+    }, [])
   );
 
-  const totalScans = userBatches.reduce(
-    (sum, b) => sum + (b.scans?.length || 0),
-    0
-  );
+  const getUserStats = (userId: string) => {
+    const userBatches = batches.filter(
+      (b) => b.userId === userId
+    );
 
-  return {
-    batchCount: userBatches.length,
-    scanCount: totalScans,
+    const totalScans = userBatches.reduce(
+      (sum, b) => sum + (b.scans?.length || 0),
+      0
+    );
+
+    return {
+      batchCount: userBatches.length,
+      scanCount: totalScans,
+    };
   };
-};
 
 
   const resetForm = () => {
@@ -60,45 +67,44 @@ const getUserStats = (userId: string) => {
   };
 
   const saveUser = async () => {
-  if (!name || !phone) {
-    Alert.alert("Validasi", "Nama dan telepon wajib diisi");
-    return;
-  }
+    setSubmitted(true);
 
-  let updated;
-  const isEdit = !!editingId;
+    if (!name || !phone) {
+      Alert.alert("Validasi", "Nama dan telepon wajib diisi");
+      return;
+    }
 
-  if (editingId) {
-    updated = users.map((u) =>
-      u.id === editingId
-        ? { ...u, name, phone }
-        : u
+    let updated;
+    const isEdit = !!editingId;
+
+    if (editingId) {
+      updated = users.map((u) =>
+        u.id === editingId
+          ? { ...u, name, phone }
+          : u
+      );
+    } else {
+      updated = [
+        ...users,
+        {
+          id: Date.now().toString(),
+          name,
+          phone,
+        },
+      ];
+    }
+
+    setUsers(updated);
+    await saveData("users", updated);
+    resetForm();
+    setSubmitted(false);
+
+    setSuccessMessage(
+      isEdit ? "User berhasil diperbarui" : "User berhasil ditambahkan"
     );
-  } else {
-    updated = [
-      ...users,
-      {
-        id: Date.now().toString(),
-        name,
-        phone,
-        requestFrom,
-        date: date.toISOString(),
-      },
-    ];
-  }
+    setSuccessVisible(true);
+  };
 
-  setUsers(updated);
-  await saveData("users", updated);
-  resetForm();
-
-  // ✅ TAMPILKAN SUCCESS DIALOG
-  setSuccessMessage(
-    isEdit
-      ? "User berhasil diperbarui"
-      : "User berhasil ditambahkan"
-  );
-  setSuccessVisible(true);
-};
 
   const editUser = (u: any) => {
     setEditingId(u.id);
@@ -108,28 +114,28 @@ const getUserStats = (userId: string) => {
     setDate(u.date ? new Date(u.date) : new Date());
   };
 
-const deleteUser = (id: string) => {
-  Alert.alert(
-    "Hapus User",
-    "Apakah kamu yakin ingin menghapus user ini?",
-    [
-      {
-        text: "Batal",
-        style: "cancel",
-      },
-      {
-        text: "Hapus",
-        style: "destructive",
-        onPress: async () => {
-          const updated = users.filter((u) => u.id !== id);
-          setUsers(updated);
-          await saveData("users", updated);
+  const deleteUser = (id: string) => {
+    Alert.alert(
+      "Hapus User",
+      "Apakah kamu yakin ingin menghapus user ini?",
+      [
+        {
+          text: "Batal",
+          style: "cancel",
         },
-      },
-    ],
-    { cancelable: true }
-  );
-};
+        {
+          text: "Hapus",
+          style: "destructive",
+          onPress: async () => {
+            const updated = users.filter((u) => u.id !== id);
+            setUsers(updated);
+            await saveData("users", updated);
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
 
   const selectUser = (u: User) => {
@@ -143,17 +149,23 @@ const deleteUser = (id: string) => {
       <View style={styles.card}>
         <Text style={styles.title}>Tambah User</Text>
 
-        <Text style={styles.label}>Nama</Text>
+        <RequiredLabel>Nama</RequiredLabel>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            submitted && !name && styles.inputError,
+          ]}
           placeholder="Nama user"
           value={name}
           onChangeText={setName}
         />
 
-        <Text style={styles.label}>Telepon</Text>
+        <RequiredLabel>Telepon</RequiredLabel>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            submitted && !phone && styles.inputError,
+          ]}
           placeholder="08xxxxxxxx"
           keyboardType="phone-pad"
           value={phone}
@@ -162,71 +174,75 @@ const deleteUser = (id: string) => {
 
 
 
+
         <TouchableOpacity style={styles.primaryBtn} onPress={saveUser}>
           <Text style={styles.primaryText}>
             {editingId ? "Update User" : "Simpan User"}
           </Text>
         </TouchableOpacity>
+        <Text style={styles.requiredNote}>
+          <Text style={styles.required}>*</Text> wajib diisi
+        </Text>
       </View>
 
       {/* LIST */}
       <Text style={styles.section}>Pilih User</Text>
 
-     {users.map((u) => {
-  const { batchCount, scanCount } = getUserStats(u.id);
+      {users.map((u) => {
+        const { batchCount, scanCount } = getUserStats(u.id);
 
-  return (
-    <View key={u.id} style={styles.userCard}>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
+        return (
+          <View key={u.id} style={styles.userCard}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <TouchableOpacity style={{ flex: 1 }} onPress={() => selectUser(u)}>
+                <Text style={styles.userName}>{u.name}</Text>
+                <Text style={styles.userPhone}>{u.phone}</Text>
+
+                {/* 🔢 STAT */}
+                <Text style={styles.userStats}>
+                  {batchCount} Batch • {scanCount} Scan
+                </Text>
+              </TouchableOpacity>
+
+              <View style={[styles.actionRow, { marginTop: 0 }]}>
+                <TouchableOpacity onPress={() => editUser(u)}>
+                  <Text style={styles.edit}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => deleteUser(u.id)}>
+                  <Text style={styles.delete}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        );
+      })}
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={successVisible}
+        onRequestClose={() => setSuccessVisible(false)}
       >
-        <TouchableOpacity style={{ flex: 1 }} onPress={() => selectUser(u)}>
-          <Text style={styles.userName}>{u.name}</Text>
-          <Text style={styles.userPhone}>{u.phone}</Text>
+        <View style={styles.overlay}>
+          <View style={styles.modal}>
+            <Text style={styles.modalTitle}>Berhasil 🎉</Text>
+            <Text style={{ marginBottom: 16 }}>{successMessage}</Text>
 
-          {/* 🔢 STAT */}
-          <Text style={styles.userStats}>
-            {batchCount} Batch • {scanCount} Scan
-          </Text>
-        </TouchableOpacity>
-
-        <View style={[styles.actionRow, { marginTop: 0 }]}>
-          <TouchableOpacity onPress={() => editUser(u)}>
-            <Text style={styles.edit}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => deleteUser(u.id)}>
-            <Text style={styles.delete}>Delete</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={() => setSuccessVisible(false)}
+            >
+              <Text style={styles.primaryText}>OK</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </View>
-  );
-})}
-
-<Modal
-  transparent
-  animationType="fade"
-  visible={successVisible}
-  onRequestClose={() => setSuccessVisible(false)}
->
-  <View style={styles.overlay}>
-    <View style={styles.modal}>
-      <Text style={styles.modalTitle}>Berhasil 🎉</Text>
-      <Text style={{ marginBottom: 16 }}>{successMessage}</Text>
-
-      <TouchableOpacity
-        style={styles.primaryBtn}
-        onPress={() => setSuccessVisible(false)}
-      >
-        <Text style={styles.primaryText}>OK</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+      </Modal>
 
 
 
@@ -328,9 +344,23 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   userStats: {
-  fontSize: 12,
-  color: "#6B7280",
-  marginTop: 4,
-},
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 4,
+  },
+  required: {
+    color: "#DC2626",
+    fontWeight: "600",
+  },
+
+  requiredNote: {
+    marginTop: 8,
+    fontSize: 12,
+    color: "#6B7280",
+  },
+
+  inputError: {
+    borderColor: "#DC2626",
+  },
 
 });

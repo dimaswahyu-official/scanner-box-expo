@@ -14,6 +14,20 @@ import { useSessionStore } from "../store/useSessionStore";
 import { Batch } from "../types";
 import { getData, saveData } from "../utils/storage";
 import DatePickerModal from "./components/date-picker-modals";
+const formatBatchName = () => {
+  const now = new Date();
+
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(
+    now.getHours()
+  )}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+};
+const RequiredLabel = ({ children }: { children: string }) => (
+  <Text style={styles.label}>
+    {children} <Text style={styles.required}>*</Text>
+  </Text>
+);
 
 export default function BatchScreen() {
   const user = useSessionStore((state) => state.user);
@@ -22,12 +36,11 @@ export default function BatchScreen() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [name, setName] = useState("");
   const [requestFrom, setRequestFrom] = useState("");
-  const [date, setDate] = useState(new Date());
-  const [showDate, setShowDate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const rootNavigationState = useRootNavigationState();
   const [successVisible, setSuccessVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
 
   // 🔒 PROTECT + LOAD
@@ -51,13 +64,14 @@ export default function BatchScreen() {
   const resetForm = () => {
     setName("");
     setRequestFrom("");
-    setDate(new Date());
     setEditingId(null);
   };
 
   const saveBatch = async () => {
-    if (!user || !name || !requestFrom) {
-      Alert.alert("Validasi", "Nama batch dan permintaan dari wajib diisi");
+    setSubmitted(true);
+
+    if (!user || !requestFrom) {
+      Alert.alert("Validasi", "Nomor Surat Jalan wajib diisi");
       return;
     }
 
@@ -65,15 +79,17 @@ export default function BatchScreen() {
     let updated: Batch[];
     const isEdit = !!editingId;
 
+    // ⏱️ AUTO DATETIME
+    const now = new Date();
+    const autoName = formatBatchName();
+
     if (editingId) {
       // ✏️ UPDATE
       updated = all.map((b) =>
         b.id === editingId
           ? {
             ...b,
-            name,
             userRequestFrom: requestFrom,
-            createdAt: date.toISOString(),
           }
           : b
       );
@@ -83,10 +99,10 @@ export default function BatchScreen() {
         ...all,
         {
           id: Date.now().toString(),
-          name,
+          name: autoName,
           userId: user.id,
           userRequestFrom: requestFrom,
-          createdAt: date.toISOString(),
+          createdAt: now.toISOString(),
           scans: [],
         },
       ];
@@ -95,15 +111,13 @@ export default function BatchScreen() {
     await saveData("batches", updated);
     setBatches(updated.filter((b) => b.userId === user.id));
     resetForm();
-
-    // ✅ SUCCESS DIALOG
+setSubmitted(false);
     setSuccessMessage(
-      isEdit
-        ? "Batch berhasil diperbarui"
-        : "Batch berhasil ditambahkan"
+      isEdit ? "Batch berhasil diperbarui" : "Batch berhasil ditambahkan"
     );
     setSuccessVisible(true);
   };
+
 
 
 
@@ -111,7 +125,6 @@ export default function BatchScreen() {
     setEditingId(batch.id);
     setName(batch.name);
     setRequestFrom(batch.userRequestFrom);
-    setDate(new Date(batch.createdAt));
   };
 
 
@@ -169,45 +182,36 @@ export default function BatchScreen() {
           <Text style={styles.label}>Nama Batch</Text>
           <TextInput
             style={styles.input}
-            placeholder="Contoh: Batch Pagi"
+            placeholder="Auto generated"
             value={name}
-            onChangeText={setName}
+            editable={false}
           />
-          <Text style={styles.label}>Permintaan Dari</Text>
+
+          <RequiredLabel>Nomor Surat Jalan</RequiredLabel>
           <TextInput
-            style={styles.input}
-            placeholder="Gudang / Customer / Internal"
+            style={[
+              styles.input,
+              submitted && !requestFrom && styles.inputError,
+            ]}
+            placeholder="Masukkan nomor surat jalan"
             value={requestFrom}
             onChangeText={setRequestFrom}
           />
-
-          <Text style={styles.label}>Tanggal</Text>
-          <TouchableOpacity
-            style={styles.dateButton}
-            onPress={() => setShowDate(true)}
-          >
-            <Text>{date.toLocaleDateString("id-ID")}</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity style={styles.primaryBtn} onPress={saveBatch}>
             <Text style={styles.primaryText}>
               {editingId ? "Update Batch" : "Simpan Batch"}
             </Text>
           </TouchableOpacity>
+          <Text style={styles.requiredNote}>
+            <Text style={styles.required}>*</Text> wajib diisi
+          </Text>
 
           {editingId && (
             <TouchableOpacity onPress={resetForm}>
               <Text style={styles.cancel}>Batal Edit</Text>
             </TouchableOpacity>
           )}
-
-          {/* DATE MODAL */}
-          <DatePickerModal
-            visible={showDate}
-            value={date}
-            onChange={setDate}
-            onClose={() => setShowDate(false)}
-          />
         </View>
 
         {/* LIST */}
@@ -424,4 +428,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
   },
+  required: {
+  color: "#E53935",
+  fontWeight: "600",
+},
+
+requiredNote: {
+  marginTop: 8,
+  fontSize: 12,
+  color: "#666",
+},
+
+inputError: {
+  borderColor: "#E53935",
+},
+
 });

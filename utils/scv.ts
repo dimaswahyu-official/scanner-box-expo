@@ -14,31 +14,28 @@ export const exportBatchToCSV = async (batch: Batch) => {
     return;
   }
 
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-
-  const safeRequestFrom = batch.userRequestFrom?.replace(/[^a-z0-9]/gi, "_") || "unknown";
+  // 🔹 Ambil user
   const users: User[] = await getData("users");
   const user = users.find((u) => u.id === batch.userId);
 
-  const userName =
-    user?.name?.replace(/[^a-z0-9]/gi, "_") || "unknown_user";
-  const batchName = batch.name?.replace(/[^a-z0-9]/gi, "_") || "unknown";
-  const barcodeCount = batch.scans?.length || 0;
-  const batchDate = batch.createdAt
-    ? (() => {
-      const d = new Date(batch.createdAt);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      return `${yyyy}${mm}${dd}`;
-    })()
-    : `${yyyy}-${mm}-${dd}`;
-  const fileName = `Scanner-${userName}-${batchName}-${barcodeCount}-${batchDate}.csv`;
+  // 🔹 Sanitizer untuk nama file
+  const safe = (val?: string) =>
+    val?.replace(/[^a-z0-9]/gi, "_") || "unknown";
+
+  // Ambil tanggal dari batch.createdAt, format DDMMYYYY
+  const d = new Date(batch.createdAt);
+  const batchName =
+    `${String(d.getDate()).padStart(2, "0")}` +
+    `${String(d.getMonth() + 1).padStart(2, "0")}` +
+    `${d.getFullYear()}`;
+  const userName = safe(user?.name);
+  const noSJ = safe(batch.userRequestFrom);
+
+  // ✅ NAMA FILE SESUAI REQUEST
+  const fileName = `Scanner-${batchName}-${userName}-${noSJ}.csv`;
   const fileUri = FileSystem.documentDirectory + fileName;
 
+  // ✅ HEADER CSV
   let csv =
     `No SJ;Trx Type;Grade;Dest;Date;Barcode;Gross;Tare;Netto;PT;Kode PT\n`;
 
@@ -52,10 +49,11 @@ export const exportBatchToCSV = async (batch: Batch) => {
       `${String(d.getMinutes()).padStart(2, "0")}:` +
       `${String(d.getSeconds()).padStart(2, "0")}`;
 
-    const barcode = `${String(s.code).replace(/"/g, '""')}`;
+    const barcode = String(s.code).replace(/"/g, '""');
 
+    // ✅ No SJ MASUK KE KOLOM PERTAMA
     csv +=
-      `;;;;` +
+      `${batch.userRequestFrom || ""};;;;` +
       `${formattedDate};` +
       `${barcode};;;;;\n`;
   });
